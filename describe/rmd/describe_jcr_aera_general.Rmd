@@ -1,0 +1,241 @@
+---
+title: "R Notebook"
+output: 
+  html_notebook: 
+    toc: yes
+---
+
+```{r, message=FALSE}
+library(here)
+library(igraph)
+library(directlabels)
+library(ggplot2)
+library(ggrepel)
+```
+
+
+```{r}
+# here('data/processed/jcr_full_graphs', 'jcr_socsci_2003-2015.rda')
+G.soc = readRDS(here('data/processed/jcr_full_graphs', 'jcr_socsci_2003-2015.rda'))
+```
+
+```{r}
+aera_lbls <- c('REV EDUC RES', 'REV RES EDUC', 'AM EDUC RES J', 'EDUC RESEARCHER',
+'EDUC EVAL POLICY AN', 'J EDUC BEHAV STAT')
+```
+
+
+```{r}
+g <- G.soc[['2015']] # select most recent  year
+```
+
+```{r}
+g
+```
+
+```{r}
+# calculate 1st, 2nd order neighborhood densities (no self-loops)
+V(g)$ego_density <- sapply(graph.neighborhood(simplify(g, remove.loops = TRUE), 1, mode='all'), graph.density)
+V(g)$ego_density_o2 <- sapply(graph.neighborhood(simplify(g, remove.loops = TRUE), 2, mode='all'), graph.density)
+
+# calculate 1st order neighborhood size
+V(g)$ego_vcount <- neighborhood.size(g, 1, V(g), mode='all')
+```
+
+```{r}
+# Convert to dataset for ggplot
+#d <- as.data.frame(vertex.attributes(g))
+d <- as.data.frame(vertex.attributes(
+  delete.vertices(g, which(degree(g, mode='in')<9)))) # 10+ connected journals (in=out)
+
+d$category <- as.character(d$category)
+d$is_aera <- d$label %in% aera_lbls
+d$subject <- 'Other'
+
+d$subject[grep('XA', d$category)] <- 'Sociology'
+
+psych <- c(grep('NQ', d$category), grep('BV', d$category), grep('EQ', d$category),
+           grep('MY', d$category), grep('HI', d$category), grep('VX', d$category),
+           grep('VS', d$category), grep('VJ', d$category), grep('VP', d$category),
+           grep('WQ', d$category))
+
+d$subject[psych] <- 'Psychology'
+d$subject[unique(c(grep('HE', d$category), grep('HA', d$category)))] <- 'Education'
+```
+
+
+```{r}
+p <- ggplot(d)
+
+my_theme <- theme(legend.position="none")
+# p <- p + theme_tufte() + my_theme
+p <- p + my_theme
+
+p.density <- p + geom_point(aes(x=ego_density_o2, y=ego_density, color=subject)) + facet_grid(subject ~ .)
+p.density <- p.density + geom_point(
+  data=d[d$is_aera == TRUE,], 
+  aes(x=ego_density_o2, y=ego_density), 
+  shape=16, colour="black", size=2)
+
+p.density <- p.density + labs(
+  x = '2nd order neighborhood density',
+  y = '1st order neighborhood density',
+  title = 'Social science journals neighborhood density\n by subject-field (AERA-journals in black)')
+
+
+p.size <- p + geom_point(aes(x=ego_vcount, y=ego_density, color=subject)) + facet_grid(subject ~ .)
+p.size <- p.size + scale_x_log10() + annotation_logticks(sides='b')
+p.size <- p.size + geom_point(
+  data=d[d$is_aera == TRUE,], 
+  aes(x=ego_vcount, y=ego_density), 
+  shape=16, colour="black", size=2)
+
+p.size <- p.size + labs(
+  x = 'Number of journals in neighborhood', 
+  y = '1st order neighborhood density',
+title = 'Social sciences journal neighborhood density and size\n by subject-field (AERA-journals in black)')
+```
+
+```{r}
+p.size
+```
+
+```{r}
+calc_density <- function (g) {
+  # g <- upgrade_graph(g) # TODO: not needed after re-export
+  
+  # calculate neighborhood densities (no self-loops)
+  V(g)$ego_density <- sapply(
+    graph.neighborhood(simplify(g, remove.loops = TRUE), 1, mode='all'), 
+    graph.density)
+  
+  # calculate number of journals in neighborhood
+  V(g)$ego_vcount <- neighborhood.size(g, 1, V(g), mode='all')
+  
+  # Convert to dataset for ggplot
+  d <- as.data.frame(vertex.attributes(g))
+  
+  # alternvative: filter small journals
+#   d <- as.data.frame(vertex.attributes(
+#     delete.ervtices(g, which(degree(g, mode='in')<9)))) # 10+ connected journals (in=out)
+  
+  d$category <- as.character(d$category)
+  d$is_aera <- d$label %in% aera_lbls
+  d$subject <- 'Other'
+  
+  d$subject[grep('XA', d$category)] <- 'Sociology'
+  
+  # TODO: dit kan netter ...
+  psych <- c(grep('NQ', d$category), grep('BV', d$category), grep('EQ', d$category),
+             grep('MY', d$category), grep('HI', d$category), grep('VX', d$category),
+             grep('VS', d$category), grep('VJ', d$category), grep('VP', d$category),
+             grep('WQ', d$category))
+  
+  d$subject[psych] <- 'Psychology'
+  d$subject[unique(c(grep('HE', d$category), grep('HA', d$category)))] <- 'Education'
+  
+  d[,c('id', 'is_aera', 'subject', 'ego_density', 'ego_vcount')]
+}
+
+# make stacked dataframe with density/size values per year
+densities <- ldply(G.soc, calc_density)
+densities$year <- densities[['.id']]
+densities[['.id']] <- NULL
+head(densities)
+
+# collapse stacked dataframe to mean/1st value per journal
+densities <- group_by(densities, id)
+densities.mean <- summarise(
+  densities,
+  subject = subject[1],
+  is_aera = is_aera[1],
+  mean_ego_density = mean(ego_density, na.rm = TRUE),
+  mean_ego_vcount = mean(ego_vcount, na.rm = TRUE))
+
+# Add short label, only for AERA journals
+densities.mean$label <- as.character(densities.mean$id)
+densities.mean$label <- ifelse(densities.mean$is_aera, densities.mean$label, NA)
+densities.mean$label <- mapvalues(
+  densities.mean$label, 
+  c('J+EDUC+BEHAV+STAT', 'REV+RES+EDUC', 'EDUC+EVAL+POLICY+AN', 'EDUC+RESEARCHER', 'AM+EDUC+RES+J', 'REV+EDUC+RES'),
+  c('JEBS', 'RRE', 'EEPA', 'ER', 'AERJ', 'RER'))
+
+# check mean calculation
+stopifnot(anyDuplicated(densities.mean$id) == 0)
+stopifnot(length(densities.mean$id) == 3512)
+mean(densities[densities$id == 'REV+EDUC+RES',]$ego_density) == 
+  densities.mean[densities.mean$id == 'REV+EDUC+RES',]$mean_ego_density
+
+```
+
+
+```{r}
+aera.subset <- densities[densities$id %in% str_replace_all(aera_lbls, ' ', '+'),]
+
+aera.subset <- aera.subset[order(aera.subset$id, aera.subset$year),]
+
+aera.subset$id <- mapvalues(
+  aera.subset$id, 
+  c('J+EDUC+BEHAV+STAT', 'REV+RES+EDUC', 'EDUC+EVAL+POLICY+AN', 
+    'EDUC+RESEARCHER', 'AM+EDUC+RES+J', 'REV+EDUC+RES'),
+  c('JEBS', 'RRE', 'EEPA', 'ER', 'AERJ', 'RER'))
+
+p.aera.density.trend <- ggplot(aera.subset, aes(
+  x = year, y = ego_density, group=id, color=id, label=id))
+p.aera.density.trend <- p.aera.density.trend + geom_path() + 
+  geom_point() + geom_dl(method="last.bumpup") + theme(legend.position="none")
+
+p.aera.density.trend <- p.aera.density.trend + 
+  labs(x='', title='AERA trend in ego network density 2003-2013',
+       y = 'Journal ego network density')
+
+p.aera.size.trend <- ggplot(aera.subset, aes(
+  x = year, y = ego_vcount, group=id, color=id, label=id))
+p.aera.size.trend <- p.aera.size.trend + geom_path() + 
+  geom_point() + geom_dl(method="last.bumpup") + theme(legend.position="none")
+
+p.aera.size.trend <- p.aera.size.trend + 
+  labs(x='', title='AERA trend in ego network size 2003-2013',
+y = 'Journal ego network size')
+```
+
+```{r}
+p.aera.density.trend
+```
+
+
+
+```{r}
+p.aera.size.trend
+```
+
+```{r}
+p <- ggplot(densities.mean)
+
+my_theme <- theme(legend.position="none")
+p <- p + my_theme
+
+p.size <- p + geom_point(aes(x=mean_ego_vcount, y=mean_ego_density, color=subject)) + facet_grid(subject ~ .)
+p.size <- p.size + scale_x_log10() + annotation_logticks(sides='b')
+p.size <- p.size + geom_point(
+  data=densities.mean[densities.mean$is_aera == TRUE,], 
+  aes(x=mean_ego_vcount, y=mean_ego_density), 
+  shape=16, colour="black", size=2)
+
+p.size <- p.size + labs(
+  x = 'Number of Journals in Neighborhood (Log Scale)', 
+  y = 'Journal Neighborhood Density',
+  title = 'Social sciences journal neighborhood density and size by subject-field')
+
+p.size.all <- p.size + geom_text_repel(aes(x=mean_ego_vcount, y=mean_ego_density, label=label))
+p.size.noother <- p.size.all %+% subset(densities.mean, densities.mean$subject != 'Other')
+```
+
+```{r}
+p.size.all
+```
+
+```{r}
+p.size.noother
+```
+

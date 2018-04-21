@@ -1,0 +1,253 @@
+---
+title: "AERA journals WOS general descriptives"
+output: 
+  html_notebook: 
+    toc: yes
+    toc_float: true
+---
+
+```{r setup, message=FALSE, warning=FALSE, echo=FALSE}
+library(readr)
+library(dplyr)
+library(here)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(directlabels)
+library(ggthemes)
+library(assertr)
+# library(hrbrthemes)
+
+
+library(knitr)
+opts_chunk$set(echo=FALSE, warning = FALSE, message = FALSE)
+```
+
+```{r, warning=FALSE, message=FALSE}
+aera = read_csv(here::here('data/processed', '20180419_wos_aera_articledata.csv')) %>%
+  verify(dim(.) == c(5919, 73))
+#spec(aera)
+```
+
+# Published item types
+
+**DISCUSSION**: include all document types or not?
+
+```{r}
+aera %>%
+  group_by(document_type) %>%
+  tally() %>%
+  arrange(desc(n))
+```
+
+```{r}
+aera %>%
+  group_by(document_type, source_title_shortcode) %>%
+  tally() %>%
+  spread(source_title_shortcode, n)
+```
+
+```{r}
+aera %>%
+  group_by(document_type, publication_year) %>%
+  tally() %>%
+  spread(document_type, n)
+```
+
+# Published item count
+
+## Item counts per AERA-journal
+
+```{r}
+aera %>%
+  group_by(source_title_shortcode) %>%
+  tally() %>%
+  rename(total_published_items = n)
+```
+
+## Item counts per year 
+
+```{r}
+aera %>%
+  group_by(publication_year) %>%
+  tally() %>%
+  rename(total_published_items = n)
+```
+
+## Item counts per year and AERA-journal
+
+```{r}
+aera %>%
+  group_by(publication_year, source_title_shortcode) %>%
+  tally() %>%
+  spread(source_title_shortcode, n)
+```
+
+```{r, warning=FALSE}
+d.aera.journal.year = aera %>%
+  filter(publication_year != 2018) %>% # TODO: character
+  group_by(source_title_shortcode, publication_date_full) %>%
+  tally()
+
+p.aera.journal.year = ggplot(d.aera.journal.year, aes(
+  x = publication_date_full, y = n,
+  label = source_title_shortcode,
+  group = source_title_shortcode, color = source_title_shortcode))
+
+
+p.aera.journal.year = p.aera.journal.year + geom_point() + 
+  geom_smooth(method = 'loess') + geom_dl(method = 'smart.grid')
+
+p.aera.journal.year = p.aera.journal.year + theme_tufte()  + theme(legend.position = 'none')
+
+p.aera.journal.year + labs(
+  title = 'Published item-count is rising, but this is a return to previous levels',
+  subtitle = 'Number of items published in AERA-journals per year, 1956-2017',
+  caption = 'Web of Knowledge, queried 2018-04-19',
+  x = NULL, y = NULL
+)
+
+# aera %>%
+#   group_by(publication_date) %>%
+#   tally() %>%
+#   mutate()
+```
+
+# Published item page count
+
+```{r}
+d.aera.journal.year.pgs = aera %>%
+  filter(publication_year != 2018) %>% # TODO: character
+  group_by(source_title_shortcode, publication_date_full) %>%
+  summarise(
+    page_count_n = sum(page_count),
+    page_count_mean = mean(page_count),
+    page_count_median = median(page_count))
+
+p.aera.journal.year.pgs = ggplot(d.aera.journal.year.pgs, aes(
+  x = publication_date_full, y = page_count_n,
+  label = source_title_shortcode,
+  group = source_title_shortcode, color = source_title_shortcode))
+
+
+p.aera.journal.year.pgs = p.aera.journal.year.pgs + geom_point() + 
+  geom_smooth(method = 'loess') + geom_dl(method = 'smart.grid')
+
+p.aera.journal.year.pgs = p.aera.journal.year.pgs + theme_tufte()  + theme(legend.position = 'none')
+
+p.aera.journal.year.pgs + labs(
+  title = 'Total number of pages published is generally risng',
+  subtitle = 'Number of pages published in AERA-journals per year, 1956-2017',
+  caption = 'Web of Knowledge, queried 2018-04-19',
+  x = NULL, y = NULL)
+
+```
+
+
+```{r}
+p.aera.journal.year.pgs.mean = ggplot(d.aera.journal.year.pgs, aes(
+  x = publication_date_full, y = page_count_mean,
+  label = source_title_shortcode,
+  group = source_title_shortcode, color = source_title_shortcode))
+
+
+p.aera.journal.year.pgs.mean = p.aera.journal.year.pgs.mean + geom_point() + 
+  geom_smooth(method = 'loess') + geom_dl(method = 'smart.grid')
+
+p.aera.journal.year.pgs.mean = p.aera.journal.year.pgs.mean + theme_tufte()  + theme(legend.position = 'none')
+
+p.aera.journal.year.pgs.mean + labs(
+  title = 'Average published item length is rising',
+  subtitle = 'Average number of pages of items published in AERA-journals per year, 1956-2017',
+  caption = 'Web of Knowledge, queried 2018-04-19',
+  x = NULL, y = NULL)
+
+```
+
+# Published items reference counts
+
+```{r}
+d.aera.journal.year.ccount = aera %>%
+  filter(publication_year != 2018) %>%
+  group_by(publication_date_full, source_title_shortcode) %>%
+  summarise(
+    cited_reference_count_n = sum(cited_reference_count),
+    cited_reference_count_mean = mean(cited_reference_count),
+    cited_reference_count_median = median(cited_reference_count),
+    cited_references_ppage_mean = mean(references_per_page))
+
+d.aera.journal.year.ccount
+```
+
+```{r}
+p.aera.journal.year.ccount.mean = ggplot(
+  d.aera.journal.year.ccount,
+  aes(x = publication_date_full, y = cited_reference_count_mean,
+      label = source_title_shortcode,
+      group = source_title_shortcode, color = source_title_shortcode))
+
+p.aera.journal.year.ccount.mean = p.aera.journal.year.ccount.mean + geom_point() + 
+  geom_smooth(method = 'loess') + geom_dl(method = 'smart.grid')
+
+p.aera.journal.year.ccount.mean = p.aera.journal.year.ccount.mean + theme_tufte()  + theme(legend.position = 'none')
+
+p.aera.journal.year.ccount.mean + labs(
+  title = 'The number of references shows different trajectories per AERA-journal',
+  subtitle = 'Average number of references in items published in AERA-journals per year, 1956-2017',
+  caption = 'Web of Knowledge, queried 2018-04-19',
+  x = NULL, y = NULL)
+```
+
+
+```{r}
+p.aera.journal.year.refppage.mean = ggplot(
+  d.aera.journal.year.ccount,
+  aes(x = publication_date_full, y = cited_references_ppage_mean,
+      label = source_title_shortcode,
+      group = source_title_shortcode, color = source_title_shortcode))
+
+p.aera.journal.year.refppage.mean = p.aera.journal.year.refppage.mean + geom_point() + 
+  geom_smooth(method = 'loess') + geom_dl(method = 'smart.grid')
+
+p.aera.journal.year.ccount.mean = p.aera.journal.year.refppage.mean + theme_tufte()  + theme(legend.position = 'none')
+
+p.aera.journal.year.ccount.mean + labs(
+  title = 'Taking into account increasing item length, shows more modest growth\nin references and the diverging RER-trajectory',
+  subtitle = 'Average number of references per page for items published in AERA-journals per year, 1956-2017',
+  caption = 'Web of Knowledge, queried 2018-04-19',
+  x = NULL, y = NULL)
+```
+
+# Published items author count
+
+```{r}
+d.aera.journal.year.acount = aera %>%
+  filter(publication_year != 2018) %>%
+  group_by(publication_date_full, source_title_shortcode) %>%
+  summarise(
+    author_count_n = sum(author_count),
+    author_count_mean = mean(author_count),
+    author_count_median = median(author_count))
+
+d.aera.journal.year.acount
+```
+
+```{r}
+p.aera.journal.year.acount.mean = ggplot(
+  d.aera.journal.year.acount,
+  aes(x = publication_date_full, y = author_count_mean,
+      label = source_title_shortcode,
+      group = source_title_shortcode, color = source_title_shortcode))
+
+p.aera.journal.year.acount.mean = p.aera.journal.year.acount.mean + geom_point() + 
+  geom_smooth(method = 'loess') + geom_dl(method = 'smart.grid')
+
+p.aera.journal.year.acount.mean = p.aera.journal.year.acount.mean + theme_tufte()  + theme(legend.position = 'none')
+
+p.aera.journal.year.acount.mean + labs(
+  title = 'Co- and multi-authored items increase in all AERA-publications',
+  subtitle = 'Average number of authors for items published in AERA-journals per year, 1956-2017',
+  caption = 'Web of Knowledge, queried 2018-04-19',
+  x = NULL, y = NULL)
+```
+

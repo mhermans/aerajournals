@@ -6,6 +6,8 @@ output:
     toc_float: true
 ---
 
+Version: 2018-04-21T22:02:00
+
 ```{r setup, message=FALSE, warning=FALSE, echo=FALSE}
 library(readr)
 library(dplyr)
@@ -31,7 +33,7 @@ aera_full = read_csv(here::here('data/processed', '20180419_wos_aera_articledata
 
 # Published item types
 
-RF 20/04: Ik denk dat we ons best richten op de volgende 4 document types: Article / Article; Book Chapter / Article; Proceedings Paper / Review. De andere types lijken me niet nodig voor de analyses => Filter 800 items.
+In the full downloaded dataset, there are `r nrow(aera_full)` records. 
 
 ```{r, message=FALSE, warning=FALSE}
 aera_full %>%
@@ -40,6 +42,8 @@ aera_full %>%
   arrange(desc(n)) %>%
   add_tally(n)
 ```
+
+RF 20/04: Ik denk dat we ons best richten op de volgende 4 document types: Article / Article; Book Chapter / Article; Proceedings Paper / Review. De andere types lijken me niet nodig voor de analyses => Filter 800 items.
 
 ```{r}
 aera = aera_full %>%
@@ -52,6 +56,8 @@ aera %>%
   tally() %>%
   add_tally(n)
 ```
+
+Filtered dataset contains `r nrow(aera)` records.
 
 ```{r}
 aera %>%
@@ -97,6 +103,8 @@ aera %>%
 ```
 
 Year-selection: end time series on 2017, i.e. filter records from 2018 (28 records), as incomplete year gives bias.
+
+Filtered dataset contains `r nrow(aera)` records.
 
 ```{r}
 aera = aera %>%

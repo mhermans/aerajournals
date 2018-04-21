@@ -24,20 +24,33 @@ opts_chunk$set(echo=FALSE, warning = FALSE, message = FALSE)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
-aera = read_csv(here::here('data/processed', '20180419_wos_aera_articledata.csv')) %>%
+aera_full = read_csv(here::here('data/processed', '20180419_wos_aera_articledata.csv')) %>%
   verify(dim(.) == c(5919, 73))
 #spec(aera)
 ```
 
 # Published item types
 
-**DISCUSSION**: include all document types or not?
+RF 20/04: Ik denk dat we ons best richten op de volgende 4 document types: Article / Article; Book Chapter / Article; Proceedings Paper / Review. De andere types lijken me niet nodig voor de analyses => Filter 800 items.
 
-```{r}
-aera %>%
+```{r, message=FALSE, warning=FALSE}
+aera_full %>%
   group_by(document_type) %>%
   tally() %>%
-  arrange(desc(n))
+  arrange(desc(n)) %>%
+  add_tally(n)
+```
+
+```{r}
+aera = aera_full %>%
+  verify(nrow(.) == 5919) %>%
+  filter(document_type %in% c('Article', 'Review', 'Article; Book Chapter', 'Article; Proceedings Paper')) %>%
+  verify(nrow(.) == 5119)
+
+aera %>% 
+  group_by(document_type) %>%
+  tally() %>%
+  add_tally(n)
 ```
 
 ```{r}
@@ -83,9 +96,18 @@ aera %>%
   spread(source_title_shortcode, n)
 ```
 
+Year-selection: end time series on 2017, i.e. filter records from 2018 (28 records), as incomplete year gives bias.
+
+```{r}
+aera = aera %>%
+  verify(nrow(.) == 5119) %>%
+  filter(publication_year != 2018) %>% # todo change to character on read-in
+  verify(nrow(.) == 5091)
+```
+
+
 ```{r, warning=FALSE}
 d.aera.journal.year = aera %>%
-  filter(publication_year != 2018) %>% # TODO: character
   group_by(source_title_shortcode, publication_date_full) %>%
   tally()
 
@@ -117,7 +139,6 @@ p.aera.journal.year + labs(
 
 ```{r}
 d.aera.journal.year.pgs = aera %>%
-  filter(publication_year != 2018) %>% # TODO: character
   group_by(source_title_shortcode, publication_date_full) %>%
   summarise(
     page_count_n = sum(page_count),
@@ -168,7 +189,6 @@ p.aera.journal.year.pgs.mean + labs(
 
 ```{r}
 d.aera.journal.year.ccount = aera %>%
-  filter(publication_year != 2018) %>%
   group_by(publication_date_full, source_title_shortcode) %>%
   summarise(
     cited_reference_count_n = sum(cited_reference_count),
@@ -222,7 +242,6 @@ p.aera.journal.year.ccount.mean + labs(
 
 ```{r}
 d.aera.journal.year.acount = aera %>%
-  filter(publication_year != 2018) %>%
   group_by(publication_date_full, source_title_shortcode) %>%
   summarise(
     author_count_n = sum(author_count),

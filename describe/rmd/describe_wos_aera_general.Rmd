@@ -2,11 +2,12 @@
 title: "AERA journals WOS general descriptives"
 output: 
   html_notebook: 
+    code_folding: hide
     toc: yes
-    toc_float: true
+    toc_float: yes
 ---
 
-Version: 2018-04-21T22:02:00
+Version: 2018-05-17T21:16:00
 
 ```{r setup, message=FALSE, warning=FALSE, echo=FALSE}
 library(readr)
@@ -18,6 +19,7 @@ library(stringr)
 library(directlabels)
 library(ggthemes)
 library(assertr)
+library(lubridate)
 # library(hrbrthemes)
 
 
@@ -207,6 +209,8 @@ d.aera.journal.year.ccount = aera %>%
 d.aera.journal.year.ccount
 ```
 
+## Trend for all AERA-journals
+
 ```{r}
 p.aera.journal.year.ccount.mean = ggplot(
   d.aera.journal.year.ccount,
@@ -219,11 +223,13 @@ p.aera.journal.year.ccount.mean = p.aera.journal.year.ccount.mean + geom_point()
 
 p.aera.journal.year.ccount.mean = p.aera.journal.year.ccount.mean + theme_tufte()  + theme(legend.position = 'none')
 
-p.aera.journal.year.ccount.mean + labs(
+p.aera.journal.year.ccount.mean = p.aera.journal.year.ccount.mean + labs(
   title = 'The number of references shows different trajectories per AERA-journal',
   subtitle = 'Average number of references in items published in AERA-journals per year, 1956-2017',
   caption = 'Web of Knowledge, queried 2018-04-19',
   x = NULL, y = NULL)
+
+p.aera.journal.year.ccount.mean
 ```
 
 
@@ -245,6 +251,118 @@ p.aera.journal.year.ccount.mean + labs(
   caption = 'Web of Knowledge, queried 2018-04-19',
   x = NULL, y = NULL)
 ```
+
+## Trend for AERJ and RER
+
+RF, 17/05: De “published items reference counts” grafiek bevat nu de data van alle AERA tijdschriften. Maar kan je die gegevens voor RER en AERJ apart uitzetten in twee grafieken, naar analogie met een oude grafiek over het gemiddeld aantal auteurs (zie hiervoor bijlage)?
+
+```{r}
+d.aera.journal.year.ccount.rer_aerj = d.aera.journal.year.ccount %>%
+  filter(source_title_shortcode %in% c('RER', 'AERJ'))
+```
+
+
+```{r}
+p.aera.journal.year.ccount.mean.rer_aerj = ggplot(
+  d.aera.journal.year.ccount.rer_aerj,
+  aes(x = publication_date_full, y = cited_reference_count_mean,
+      label = source_title_shortcode,
+      group = source_title_shortcode, color = source_title_shortcode))
+
+p.aera.journal.year.ccount.mean.rer_aerj = p.aera.journal.year.ccount.mean.rer_aerj +
+  geom_point() + 
+  geom_smooth(method = 'loess') + facet_grid(source_title_shortcode ~ .)
+
+p.aera.journal.year.ccount.mean.rer_aerj = p.aera.journal.year.ccount.mean.rer_aerj +
+  # theme_tufte() + 
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position = 'none')
+
+p.aera.journal.year.ccount.mean.rer_aerj = p.aera.journal.year.ccount.mean.rer_aerj + labs(
+  title = 'Both AERJ and RER show an increase in the average number of references ',
+  subtitle = 'Average number of references in items published per year, 1956-2017',
+  caption = 'Web of Knowledge, queried 2018-04-19',
+  x = NULL, y = NULL)
+
+p.aera.journal.year.ccount.mean.rer_aerj = p.aera.journal.year.ccount.mean.rer_aerj + 
+  scale_y_continuous(breaks = c(10, 50, 100, 150)) +
+  scale_x_date(breaks = c(ymd('1956-06-15'), ymd('1964-06-15'),
+                          ymd('1970-06-15'), ymd('1980-06-15'), 
+                          ymd('1990-06-15'), ymd('2000-06-15'), 
+                          ymd('2010-06-15'), ymd('2017-06-15')),
+               labels = c('1956', '1964', '1970', '1980', '1990', '2000', '2010', '2017'))
+
+p.aera.journal.year.ccount.mean.rer_aerj
+```
+
+```{r}
+d.aera.journal.year.ccount.rer_aerj %>%
+  # filter(source_title_shortcode == 'AERJ') %>%
+  group_by(source_title_shortcode) %>%
+  summarise(
+    min_year = min(publication_date_full),
+    min_count_mean = min(cited_reference_count_mean))
+# min(d.aera.journal.year.ccount.rer_aerj$publication_date_full)
+# max(d.aera.journal.year.ccount.rer_aerj$publication_date_full)
+```
+
+
+```{r}
+p.aera.journal.year.refppage.mean.rer_aerj = ggplot(
+  d.aera.journal.year.ccount.rer_aerj,
+  aes(x = publication_date_full, y = cited_references_ppage_mean,
+      label = source_title_shortcode,
+      group = source_title_shortcode, color = source_title_shortcode))
+
+p.aera.journal.year.refppage.mean.rer_aerj = p.aera.journal.year.refppage.mean.rer_aerj +
+  geom_point() + 
+  geom_smooth(method = 'loess') + facet_grid(source_title_shortcode ~ .)
+
+p.aera.journal.year.refppage.mean.rer_aerj = p.aera.journal.year.refppage.mean.rer_aerj +
+  # theme_tufte()  +
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position = 'none')
+
+p.aera.journal.year.refppage.mean.rer_aerj = p.aera.journal.year.refppage.mean.rer_aerj + 
+  scale_x_date(breaks = c(ymd('1956-06-15'), ymd('1964-06-15'),
+                          ymd('1970-06-15'), ymd('1980-06-15'), 
+                          ymd('1990-06-15'), ymd('2000-06-15'), 
+                          ymd('2010-06-15'), ymd('2017-06-15')),
+               labels = c('1956', '1964', '1970', '1980', '1990', '2000', '2010', '2017'))
+
+p.aera.journal.year.refppage.mean.rer_aerj = p.aera.journal.year.refppage.mean.rer_aerj +
+  labs(
+    title = 'Taking into account increasing item length, shows more modest growth\nin references and the diverging RER-trajectory',
+    subtitle = 'Average number of references per page for items published per year, 1956-2017',
+    caption = 'Web of Knowledge, queried 2018-04-19',
+    x = NULL, y = NULL)
+p.aera.journal.year.refppage.mean.rer_aerj
+```
+
+```{r}
+# save version with and without titles
+ggsave(
+  here::here('describe/figures', 'aera_wos_refcount_mean_rer_aerj_1956-2017_title.png'),
+  p.aera.journal.year.ccount.mean.rer_aerj, width = 8, height = 6)
+ggsave(
+  here::here('describe/figures', 'aera_wos_refcount_mean_rer_aerj_1956-2017_notitle.png'),
+  p.aera.journal.year.ccount.mean.rer_aerj + labs(
+    title = NULL, subtitle = NULL, caption = NULL),
+  width = 8, height = 6)
+
+ggsave(
+  here::here('describe/figures', 'aera_wos_refcount_mean_pp_rer_aerj_1956-2017_title.png'),
+  p.aera.journal.year.refppage.mean.rer_aerj, width = 8, height = 6)
+ggsave(
+  here::here('describe/figures', 'aera_wos_refcount_mean_pp_rer_aerj_1956-2017_notitle.png'),
+  p.aera.journal.year.refppage.mean.rer_aerj + labs(
+    title = NULL, subtitle = NULL, caption = NULL),
+  width = 8, height = 6)
+```
+
+
 
 # Published items author count
 

@@ -128,7 +128,7 @@ aera = aera %>%
     references_per_page = cited_reference_count / page_count,
     publication_date_full = ymd(str_c(as.character(publication_year), '-06-15')))
   
-write_csv(aera, 'data/processed/20180419_wos_aera_articledata.csv')
+write_csv(aera, here::here('data/processed/', '20180419_wos_aera_articledata.csv'))
 
 
 rm(aera, aera_raw, aerj_raw, eepa_raw, er_raw, jebs_raw, rre_raw, rer_raw, read_tsv_wos)
